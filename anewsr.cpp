@@ -7,7 +7,6 @@
 #include <string>
 #include <map>
 #include <unordered_map>
-#include <regex.h>
 #include <sstream>
 #include "argparse.hpp"
 
@@ -395,7 +394,6 @@ int main(int argc, char** argv) {
 
                 pam_sites_postive.clear();
                 if (parser["--cas9"] == true) {
-                    regex re("(?=.GG)");
                     
                     pam_sites_postive = find_pam_site2("GG", sequence);
                     pam_sites_postive[0]--;
@@ -434,7 +432,6 @@ int main(int argc, char** argv) {
 
                 }//cas9 ends above, cpf1 starts below
                 if (parser["--cpf1"] == true) {
-                    regex rg("(?=TTT.)");
                     pam_sites_postive = find_pam_site2("TTT", sequence);
                     pam_sites_postive[0]--;
                     pam_sites_postive[1]--;
