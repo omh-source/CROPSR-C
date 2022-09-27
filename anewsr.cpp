@@ -1,6 +1,8 @@
 // cl anewsr.cpp /std:c++17
 // anewsr.exe -f sample_data/sample_genome.fa -g sample_data/sample_genome.gff -o sample_data/sample_genome_output.csv --cas9 -v
-
+// The total time taken is 4533 [no regex, as is]
+// The total time taken is 6069 [amulya regex]
+// The total time taken is 3395 [remove the trailing 5 chars on both ends, more accurate results]
 #include <iostream>
 #include <cstring>
 #include <fstream>
@@ -9,7 +11,9 @@
 #include <unordered_map>
 #include <sstream>
 #include "argparse.hpp"
-
+#include <chrono>
+#include <regex.h>
+using namespace std::chrono;
 using namespace std;
 
 unordered_map<string, int> antiswap{
@@ -58,6 +62,16 @@ double matrix_multiply(double** a, int** b, int c, int d) {
     return trace;
 }
 
+void find_pam_site(string sequence, regex re, vector<int>& pam_sites_postive) {
+    // finding all the matches
+    for (sregex_iterator it = sregex_iterator(sequence.begin(), sequence.end(), re);
+        it != sregex_iterator(); it++) {
+        smatch match;
+        match = *it;
+        pam_sites_postive.push_back(match.position(0));
+    }
+}
+
 vector<int> find_pam_site2(string target, string sequence){
     vector<int> sites;
     if (target.length() > sequence.length())
@@ -65,10 +79,59 @@ vector<int> find_pam_site2(string target, string sequence){
     else 
         for (int i = 0;i < sequence.length() - target.length();i++) {
             
+            
             string s = sequence.substr(i, target.length());            
-            if (s == target)
-                sites.push_back(i);
+            if (s == target) {
+                sites.push_back(i-1);
+                //if (sites.size() >= 2)
+                  //  return sites;
+            }
         }
+    return sites;
+}
+
+vector<int> find_pam_site3(regex target, string sequence) {
+    vector<int> sites;
+
+    for (auto it = std::sregex_iterator(sequence.begin(), sequence.end(), target);
+        it != std::sregex_iterator();
+        ++it)
+    {
+        sites.push_back(it->position()-1);
+    }
+    /*
+   // cout << "called--\n";
+       // for (int i = 0;i < sequence.length();i++) {
+    std::smatch m;
+
+    std::sregex_iterator iter(sequence.begin(), sequence.end(), target);
+    std::sregex_iterator end;
+
+    while (iter != end)
+    {
+     //   std::cout << "size: " << iter->size() << std::endl;
+
+        for (unsigned i = 0; i < iter->size(); ++i)
+        {
+           // std::cout << "the " << i + 1 << "th match" << ": " << (*iter)[i] << std::endl;
+            sites.push_back(i);
+        }
+        ++iter;
+    }
+   // regex_search("abcs",m,regex("a")))
+    
+    std::regex_search ( sequence, m, target );
+ ///   cout << "GEGEGEGE\n";
+            if(m.size()>0) 
+                cout << to_string(m.size())+"matches for the given string\n ";
+    for(int i=0;i<m.size();i++)
+                sites.push_back(m.position(0));
+                //if (sites.size() >= 2)
+                  //  return sites;
+          //  }
+       // }
+      //      cout <<"BRRRR\n";
+      */
     return sites;
 }
 
@@ -180,7 +243,7 @@ double rs1_score(string sequence) {
     double score_first = matrix_multiply(first_matrix, x, 4, 30);
     double score_second = matrix_multiply(second_matrix, y, 16, 29);
     double gc_count = 0;
-    for (int l = 0;l < sequence.length();l++) {
+    for (int l = 5;l < sequence.length()-5;l++) {
         if (sequence[l] == 'G' || sequence[l] == 'C')
             gc_count++;
     }
@@ -310,6 +373,17 @@ string get_gRNA_sequence(string input_sequence)
 
 int main(int argc, char** argv) {
    // test();
+    //return 5l;
+    /*
+    cout << "\nSTART\n";
+    string test = "UCCGUGUGCGUACGUAAAAUCAGUAUACAA";
+    regex ra("(.+)(AAA)(.+)");
+    cout << regex_match(test, ra);
+    if (std::regex_match(test.begin(), test.end(), ra))
+        std::cout << "range matched\n";
+        */
+    cout << "Checkpoint 1\n";
+    auto start = high_resolution_clock::now();
     vector<string> chromosome_fasta, sequence_fasta, chromosome_gff, source_gff, feature_gff,
         start_gff, end_gff, score_gff, strand_gff, phase_gff, attributes_gff;
     vector<int> pam_sites_postive, pam_sites_negative;
@@ -380,6 +454,7 @@ int main(int argc, char** argv) {
     else {
         myfile << "crispr_id, crispr_sys, sequence, long_sequence, chromosome, start_pos, end_pos, cutsite, strand, on_site_score, features\n";
         
+        cout << "Checkpoint 2\n";
 
         import_fasta_file(argc, parser.get("-f"), chromosome_fasta, sequence_fasta);
         import_gff_file(argc, parser.get("-g"), chromosome_gff, source_gff, feature_gff, start_gff,
@@ -391,14 +466,20 @@ int main(int argc, char** argv) {
         vector<string> complete_dataset;
         for (int i = 0;i < chromosome_fasta.size();i++) {
             for (string sequence : sequence_fasta) {
-
-                pam_sites_postive.clear();
+                std::transform(sequence.begin(), sequence.end(), sequence.begin(), ::toupper);
+                //pam_sites_postive.clear();
                 if (parser["--cas9"] == true) {
-                    
+                   // regex re("(?=.GG)");
+                    //find_pam_site(sequence, re, pam_sites_postive);
+                    cout << "Checkpoint 3\n";
+
+                  //  regex se("GG");
+                    //pam_sites_postive = find_pam_site3(se, sequence);
                     pam_sites_postive = find_pam_site2("GG", sequence);
-                    pam_sites_postive[0]--;
-                    pam_sites_postive[1]--;
-                    
+                    //pam_sites_postive[0]--;
+                    //pam_sites_postive[1]--;
+                    cout << "Checkpoint 4\n";
+
                     for (int j : pam_sites_postive) {
                        
                         int pam_location[] = { j - (parser.get<int>("-l") + 1),j - 1 };
@@ -413,10 +494,13 @@ int main(int argc, char** argv) {
                           
                         }
                     }
-                  
+                   // regex rf("(?=.CC)");
+                    //find_pam_site(sequence, rf, pam_sites_postive);
+                  //  regex sf("CC");
+                   //pam_sites_postive = find_pam_site3(sf, sequence);
                     pam_sites_postive = find_pam_site2("CC", sequence);
-                    pam_sites_postive[0]--;
-                    pam_sites_postive[1]--;
+                    //pam_sites_postive[0]--;
+                    //pam_sites_postive[1]--;
                     for (int j : pam_sites_postive) {
                         int pam_location[] = { j + 1,(j + (parser.get<int>("-l") + 1)) };
                         if (pam_location[0] >= 5 && pam_location[0] + 5 <= sequence.length() + 10 && pam_location[1] >= 5 && pam_location[1] <= sequence.length() + 10) {
@@ -432,9 +516,13 @@ int main(int argc, char** argv) {
 
                 }//cas9 ends above, cpf1 starts below
                 if (parser["--cpf1"] == true) {
+                   // regex rg("(?=.TTT)");
+                    //find_pam_site(sequence, rg, pam_sites_postive);
+                   // regex sg("TTT");
+                 //   pam_sites_postive = find_pam_site3(sg, sequence);
                     pam_sites_postive = find_pam_site2("TTT", sequence);
-                    pam_sites_postive[0]--;
-                    pam_sites_postive[1]--;
+                    //pam_sites_postive[0]--;
+                    //pam_sites_postive[1]--;
 
                     for (int j : pam_sites_postive) {
                         int pam_location[] = { j + 4,(j + (parser.get<int>("-l") + 4)) };
@@ -447,10 +535,13 @@ int main(int argc, char** argv) {
                            
                         }
                     }
-                   
+                    //regex rh("(?=.AAA)");
+                    //find_pam_site(sequence, rh, pam_sites_postive);
+                   // regex sh("AAA");
+                    //pam_sites_postive = find_pam_site3(sh, sequence);
                     pam_sites_postive = find_pam_site2("AAA", sequence);
-                    pam_sites_postive[0]--;
-                    pam_sites_postive[1]--;
+                    //pam_sites_postive[0]--;
+                    //pam_sites_postive[1]--;
 
                     for (int j : pam_sites_postive) {
                         
@@ -469,11 +560,20 @@ int main(int argc, char** argv) {
         }
         printf("Output file successfully generated. \n");
     } 
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<milliseconds>(stop - start);
+    cout << "The total time taken is ";
+    cout << duration.count();
 	
 	return 100;
 }
 
 void test() {
+    cout << "\nSTART\n";
+    string test = "UCCGUGUGCGUACGUAAAAUCAGUAUACAA";
+    regex ra("AAA");
+    cout<<regex_match(test,ra);
+    /*
     string test = "UCCGUGUGCGUACGUAAAAUCAGUAUACAA";
     cout << "Start Test";
     cout << get_reverse_complement(test) + "\n";
@@ -482,4 +582,5 @@ void test() {
     vector<int> fpm = find_pam_site2("AA", test);
     cout << fpm.at(0);
     cout << "End Test";
+    */
 }
